@@ -1,0 +1,73 @@
+version: "3.8"
+services:
+  mongo1:
+    image: mongo:4.4
+    container_name: mongo1
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    ports:
+      - "27017:27017"
+    volumes:
+      - ./replicaSet.js:/docker-entrypoint-initdb.d/replicaSet.js
+    depends_on:
+      - mongo2
+      - mongo3
+    networks:
+      - mongo_net
+
+  mongo2:
+    image: mongo:4.4
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27018"]
+    ports:
+      - "27018:27018"
+    networks:
+      - mongo_net
+
+  mongo3:
+    image: mongo:4.4
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27019"]
+    ports:
+      - "27019:27019"
+    networks:
+      - mongo_net
+
+  yolo5:
+    image: sabaas/yolo5:latest
+    ports:
+      - "8080:8081"
+    networks:
+      - mongo_net
+    environment:
+      BUCKET_NAME: naghambucket
+    volumes:
+      - /home/vboxuser/.aws:/root/.aws
+    depends_on:
+      - "mongo1"
+
+  polybot:
+    image: sabaas/polybot:latest
+    ports:
+      - "8443:8443"
+    networks:
+      - mongo_net
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - TELEGRAM_APP_URL=https://086c-77-126-103-202.ngrok-free.app
+      - BUCKET_NAME=naghambucket
+    volumes:
+      - /home/vboxuser/.aws:/root/.aws
+      - ./telegram_token.txt:/app/telegram_token.txt
+    #env_file: .env
+    depends_on:
+      - "mongo1"
+    secrets:
+      - mysecret
+
+
+secrets:
+  mysecret:
+    file: .env
+
+
+networks:
+  mongo_net:
+    driver: bridge
